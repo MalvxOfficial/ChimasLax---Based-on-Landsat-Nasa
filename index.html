@@ -17,11 +17,9 @@
 
     let planetasDB = [];
     
-    // Query simplificada para evitar erros de caractere
-    const NASA_API = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+1000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
-    
-    // Usando AllOrigins no modo GET (mais estável para JSON puro)
-    const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(NASA_API)}`;
+    // QUERY REDUZIDA (TOP 500) PARA EVITAR TIMEOUT 504
+    const NASA_QUERY = "select+top+500+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1+order+by+disc_year+desc";
+    const NASA_URL = `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=${NASA_QUERY}&format=json`;
 
     function getPlanetColor(temp) {
         if (!temp) return '#8e8e8e';
@@ -32,46 +30,47 @@
     }
 
     async function fetchNasaData() {
-        addLog("Conectando via AllOrigins...");
+        // TENTATIVA 1: ALLORIGINS (Mais estável para payloads pequenos)
+        addLog("Conectando à NASA (Via AllOrigins)...");
         try {
-            const response = await fetch(PROXY_URL);
-            if (!response.ok) throw new Error("Erro no servidor Proxy");
+            const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(NASA_URL)}`);
+            if (!response.ok) throw new Error("AllOrigins Indisponível");
             
             const result = await response.json();
-            // AllOrigins retorna o JSON dentro de result.contents
             const data = typeof result.contents === 'string' ? JSON.parse(result.contents) : result.contents;
-            
-            if (!Array.isArray(data)) throw new Error("Formato de dados inválido");
 
-            planetasDB = data.map(p => ({
-                p: p.pl_name,
-                c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
-                hex: getPlanetColor(p.st_teff),
-                d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
-            }));
-
+            processData(data);
             addLog(`Sucesso! ${planetasDB.length} astros sincronizados.`);
-            document.getElementById('mainInput').placeholder = "ChimasAlice...";
         } catch (e) {
-            addLog(`ERRO: ${e.message}`);
-            addLog("Tentando backup (Direct)...");
-            // Tentativa final direta (alguns navegadores mobile permitem se o site estiver no GitHub)
+            addLog(`Erro 1: ${e.message}`);
+            
+            // TENTATIVA 2: BACKUP (CORS-ANYWHERE ou DIRECT)
+            addLog("Tentando backup direto...");
             try {
-                const res = await fetch(NASA_API);
-                const data = await res.json();
-                planetasDB = data.map(p => ({
-                    p: p.pl_name, hex: getPlanetColor(p.st_teff), d: `Ano: ${p.disc_year}`, c: `${p.st_teff}K`
-                }));
-                addLog("Sucesso via Direct Connection!");
-                document.getElementById('mainInput').placeholder = "ChimasAlice...";
-            } catch(err) {
-                addLog("Falha total na sincronização.");
-                document.getElementById('mainInput').placeholder = "Erro Crítico.";
+                const resDirect = await fetch(NASA_URL);
+                const dataDirect = await resDirect.json();
+                processData(dataDirect);
+                addLog("Sucesso via conexão direta!");
+            } catch (err) {
+                addLog("Falha total. Verifique sua conexão de rede.");
+                document.getElementById('mainInput').placeholder = "Modo Offline.";
             }
         }
     }
+
+    function processData(data) {
+        planetasDB = data.map(p => ({
+            p: p.pl_name,
+            c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
+            hex: getPlanetColor(p.st_teff),
+            d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
+        }));
+        document.getElementById('mainInput').placeholder = "ChimasAlice...";
+    }
+
     fetchNasaData();
 
+    // --- MANTÉM O RESTANTE DO SEU CÓDIGO (RENDER, INPUT, SAVE) IGUAL ---
     const input = document.getElementById('mainInput');
     const area = document.getElementById('render-area');
     const btnSort = document.getElementById('toggleSort');
@@ -93,7 +92,6 @@
 
     function render() {
         const clean = cleanString(input.value);
-        
         if (clean === "CHIMASALICE") {
             if (!eggActive) {
                 eggActive = true; 
@@ -113,25 +111,19 @@
                     }
                 }, 1000);
             }
-        } else { 
-            eggActive = false; 
-        }
+        } else { eggActive = false; }
 
         area.innerHTML = "";
         let historicoIndices = {};
-
         [...clean].forEach((char, index) => {
             const opcoes = planetasDB.filter(item => {
                 const alvo = (modoBusca === 'nome') ? item.p : item.c;
                 return cleanString(alvo).startsWith(char);
             });
-
             if (opcoes.length === 0) return;
-
             if (!historicoIndices[char]) historicoIndices[char] = 0;
             let astro = opcoes[historicoIndices[char] % opcoes.length];
             historicoIndices[char]++;
-
             const div = document.createElement('div');
             div.className = 'card';
             div.style.animationDelay = `${index * 0.05}s`;
@@ -150,9 +142,7 @@
         btnSort.innerText = modoBusca === 'nome' ? "Modo: Letra do Planeta" : "Modo: Letra da Cor";
         render();
     };
-
     input.oninput = render;
-
     document.getElementById('savePng').onclick = () => {
         if (area.children.length === 0) return;
         document.body.classList.add('printing');
