@@ -19,10 +19,9 @@ Embora a estrutura principal tenha nascido desse fluxo de "vibe", o projeto pass
 
 ## 🛠️ Tecnologias Utilizadas
 
-* **HTML5** - Estrutura semântica.
-* **CSS3** - Estilização moderna e layout responsivo.
-* **JavaScript** - Lógica de interação e manipulação de elementos.
-* **GitHub Pages** - Hospedagem e deploy contínuo.
+* **HTML5 & CSS3:** Estrutura e estilização com variáveis modernas e animações de interface.
+* **JavaScript (Vanilla):** Lógica pura para processamento de texto, normalização de strings e manipulação do DOM.
+* **[html2canvas](https://html2canvas.hertzen.com/):** Biblioteca utilizada para converter o canvas do navegador em arquivos de imagem (PNG).
 
 ## 🚀 Como visualizar
 
@@ -32,5 +31,5 @@ Para ver o projeto funcionando, basta acessar o link:
 ---
 
 <p align="center">
-  Desenvolvido com ☕ e foco por <strong>ChimasAlice</strong>
+  Desenvolvido com ❤️ e foco por <strong>ChimasAlice</strong>
 </p>
