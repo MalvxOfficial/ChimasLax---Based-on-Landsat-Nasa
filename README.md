@@ -8,7 +8,7 @@ Um projeto visual e interativo inspirado na iniciativa da NASA [Your Name in Lan
 
 O **ChimasLax** é uma homenagem estética à exploração espacial. Ele transforma textos em composições visuais oferecendo uma experiência minimalista e imersiva.
 
-## ⚡ Desenvolvimento & "Vibecoding"
+## ⚡ Desenvolvimento & Vibecoding
 
 Este projeto foi construído seguindo o conceito de **Vibecoding** — um desenvolvimento ágil e fluido focado na experimentação e no uso intenso de IA para prototipagem rápida. 
 
