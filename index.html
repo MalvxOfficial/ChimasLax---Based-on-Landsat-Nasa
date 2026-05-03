@@ -18,6 +18,15 @@
             color: var(--accent); padding: 15px; border-radius: 14px;
             font-size: 1.1rem; text-align: center; width: 350px; outline: none;
         }
+
+        /* ESTILO DO LOG */
+        #debug-log {
+            font-family: monospace; font-size: 0.7rem; color: #888;
+            margin-top: 10px; width: 350px; text-align: left;
+            max-height: 60px; overflow-y: auto; background: rgba(0,0,0,0.3);
+            padding: 5px; border-radius: 8px; border: 1px solid #220000;
+        }
+
         .viewport { width: 100%; overflow-x: auto; padding: 20px 0; }
         #render-area {
             display: flex; flex-direction: row; gap: 25px; padding: 40px 60px;
@@ -57,6 +66,7 @@
 
     <div class="header">
         <input type="text" id="mainInput" placeholder="Sincronizando NASA..." maxlength="50">
+        <div id="debug-log">Iniciando sistema...</div>
     </div>
 
     <div class="viewport">
@@ -78,10 +88,17 @@
     </div>
 
     <script>
+        const logBox = document.getElementById('debug-log');
+        function addLog(msg) {
+            const time = new Date().toLocaleTimeString();
+            logBox.innerHTML += `<br>[${time}] ${msg}`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
         let planetasDB = [];
         
-        // --- LOGICA DE CONEXÃO DIRETA COM O CORSProxy.io ---
-        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+3000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
+        // Alternativa via proxy para evitar CORS
+        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+2000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
         const FINAL_URL = "https://corsproxy.io/?" + encodeURIComponent(NASA_QUERY);
 
         function getPlanetColor(temp) {
@@ -93,25 +110,27 @@
         }
 
         async function fetchNasaData() {
-            console.log("Iniciando busca na NASA via CORSProxy.io...");
+            addLog("Tentando conectar com NASA...");
             try {
                 const response = await fetch(FINAL_URL);
-                if (!response.ok) throw new Error("Status da resposta: " + response.status);
+                if (!response.ok) throw new Error("HTTP Status: " + response.status);
                 
+                addLog("Conexão OK. Processando dados...");
                 const data = await response.json();
-                console.log("Dados recebidos:", data.length, "planetas carregados.");
-
+                
                 planetasDB = data.map(p => ({
                     p: p.pl_name,
                     c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
                     hex: getPlanetColor(p.st_teff),
-                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}. Um exoplaneta real da base da NASA.`
+                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
                 }));
 
+                addLog(`Sucesso: ${data.length} astros carregados.`);
                 document.getElementById('mainInput').placeholder = "ChimasAlice...";
             } catch (e) {
-                console.error("ERRO CRÍTICO NA CONEXÃO:", e);
-                document.getElementById('mainInput').placeholder = "Falha na conexão externa.";
+                addLog(`ERRO: ${e.message}`);
+                console.error(e);
+                document.getElementById('mainInput').placeholder = "Erro de conexão.";
             }
         }
         fetchNasaData();
