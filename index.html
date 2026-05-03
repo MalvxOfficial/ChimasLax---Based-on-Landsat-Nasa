@@ -56,7 +56,7 @@
 <body>
 
     <div class="header">
-        <input type="text" id="mainInput" placeholder="Conectando à NASA..." maxlength="50">
+        <input type="text" id="mainInput" placeholder="Sincronizando NASA..." maxlength="50">
     </div>
 
     <div class="viewport">
@@ -80,9 +80,9 @@
     <script>
         let planetasDB = [];
         
-        // Link NASA via Proxy AllOrigins sem cache para forçar a conexão
-        const NASA_API = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
-        const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(NASA_API)}`;
+        // --- LOGICA DE CONEXÃO DIRETA COM O CORSProxy.io ---
+        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+3000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
+        const FINAL_URL = "https://corsproxy.io/?" + encodeURIComponent(NASA_QUERY);
 
         function getPlanetColor(temp) {
             if (!temp) return '#8e8e8e';
@@ -93,22 +93,25 @@
         }
 
         async function fetchNasaData() {
+            console.log("Iniciando busca na NASA via CORSProxy.io...");
             try {
-                const response = await fetch(PROXY_URL);
-                const result = await response.json();
-                // O AllOrigins retorna os dados dentro de 'contents' como string, precisamos converter
-                const data = JSON.parse(result.contents);
+                const response = await fetch(FINAL_URL);
+                if (!response.ok) throw new Error("Status da resposta: " + response.status);
                 
+                const data = await response.json();
+                console.log("Dados recebidos:", data.length, "planetas carregados.");
+
                 planetasDB = data.map(p => ({
                     p: p.pl_name,
                     c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
                     hex: getPlanetColor(p.st_teff),
                     d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}. Um exoplaneta real da base da NASA.`
                 }));
+
                 document.getElementById('mainInput').placeholder = "ChimasAlice...";
             } catch (e) {
-                console.error("Erro na conexão NASA", e);
-                document.getElementById('mainInput').placeholder = "Erro na conexão.";
+                console.error("ERRO CRÍTICO NA CONEXÃO:", e);
+                document.getElementById('mainInput').placeholder = "Falha na conexão externa.";
             }
         }
         fetchNasaData();
