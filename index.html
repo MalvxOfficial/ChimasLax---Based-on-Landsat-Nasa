@@ -56,7 +56,7 @@
 <body>
 
     <div class="header">
-        <input type="text" id="mainInput" placeholder="ChimasAlice..." maxlength="50">
+        <input type="text" id="mainInput" placeholder="Conectando à NASA..." maxlength="50">
     </div>
 
     <div class="viewport">
@@ -78,34 +78,36 @@
     </div>
 
     <script>
-        const planetasDB = [
-            { p: 'Aldebaran b', c: 'Alaranjado', hex: '#ff8b3d', d: 'Um gigante gasoso orbitando uma estrela gigante vermelha.' },
-            { p: 'Belerofonte', c: 'Bronze', hex: '#cd7f32', d: 'O primeiro exoplaneta orbitando uma estrela solar.' },
-            { p: 'Ceres', c: 'Cinza', hex: '#8e8e8e', d: 'O maior objeto no cinturão de asteroides, um planeta anão.' },
-            { p: 'Dactyl', c: 'Dourado', hex: '#daa520', d: 'Uma minúscula lua que orbita o asteroide Ida.' },
-            { p: 'Eris', c: 'Escarlate', hex: '#990000', d: 'Um planeta anão gélido localizado no Cinturão de Kuiper.' },
-            { p: 'Fobos', c: 'Ferrugem', hex: '#b7410e', d: 'Uma das luas de Marte, com superfície rica em regolito escuro.' },
-            { p: 'Ganimedes', c: 'Gelo', hex: '#afeeee', d: 'A maior lua do sistema solar, maior que Mercúrio.' },
-            { p: 'Haumea', c: 'Heliotropo', hex: '#df73ff', d: 'Planeta anão com formato elíptico devido à sua rotação.' },
-            { p: 'Io', c: 'Icterícia', hex: '#fdfd00', d: 'O corpo com maior atividade vulcânica do sistema solar.' },
-            { p: 'Júpiter', c: 'Jaspe', hex: '#e3bb76', d: 'O gigante gasoso com suas icônicas faixas de nuvens.' },
-            { p: 'Kepler-186f', c: 'Kiwi', hex: '#8ee53f', d: 'Exoplaneta do tamanho da Terra em zona habitável.' },
-            { p: 'Luna', c: 'Lavanda', hex: '#e6e6fa', d: 'O satélite natural da Terra, com mares de basalto.' },
-            { p: 'Marte', c: 'Magenta', hex: '#ff00ff', d: 'O Planeta Vermelho, coberto por poeira de óxido de ferro.' },
-            { p: 'Netuno', c: 'Naval', hex: '#000080', d: 'O gigante azul profundo com ventos supersônicos.' },
-            { p: 'Osíris', c: 'Ouro', hex: '#ffd700', d: 'Exoplaneta que está perdendo sua atmosfera para o espaço.' },
-            { p: 'Plutão', c: 'Pérola', hex: '#eae0c8', d: 'Planeta anão com planícies de gelo de nitrogênio.' },
-            { p: 'Quaoar', c: 'Quartzo', hex: '#514100', d: 'Objeto transnetuniano gélido com anéis misteriosos.' },
-            { p: 'Rhea', c: 'Rosa', hex: '#ff69b4', d: 'A segunda maior lua de Saturno, composta de gelo de água.' },
-            { p: 'Saturno', c: 'Sépia', hex: '#c5ab6e', d: 'O senhor dos anéis, com tonalidade amarelada suave.' },
-            { p: 'Titã', c: 'Tangerina', hex: '#ff8c00', d: 'A única lua com uma atmosfera densa e lagos líquidos.' },
-            { p: 'Urano', c: 'Uva', hex: '#6a5acd', d: 'Um gigante gelado que orbita o sol quase deitado.' },
-            { p: 'Vênus', c: 'Violeta', hex: '#8b00ff', d: 'O planeta mais quente, com nuvens espessas de ácido.' },
-            { p: 'WASP-12b', c: 'Wenguê', hex: '#645452', d: 'Um exoplaneta escuro sendo deformado por sua estrela.' },
-            { p: 'Xena', c: 'Xantofila', hex: '#f1ff31', d: 'Apelido histórico para o planeta anão Éris.' },
-            { p: 'Ymir', c: 'Yvone', hex: '#f5fffa', d: 'Uma pequena lua irregular orbitando Saturno.' },
-            { p: 'Zena', c: 'Zinco', hex: '#bac4c8', d: 'Referência aos minerais encontrados em meteoritos.' }
-        ];
+        // --- INÍCIO DA INTEGRAÇÃO NASA ---
+        let planetasDB = [];
+        const NASA_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json");
+
+        function getPlanetColor(temp) {
+            if (!temp) return '#8e8e8e';
+            if (temp > 10000) return '#9bb0ff';
+            if (temp > 6000) return '#f8f7ff';
+            if (temp > 4000) return '#fff2a1';
+            return '#ff6060';
+        }
+
+        async function fetchNasaData() {
+            try {
+                const response = await fetch(NASA_URL);
+                const data = await response.json();
+                planetasDB = data.map(p => ({
+                    p: p.pl_name,
+                    c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
+                    hex: getPlanetColor(p.st_teff),
+                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}. Um exoplaneta real catalogado pela NASA.`
+                }));
+                document.getElementById('mainInput').placeholder = "ChimasAlice...";
+            } catch (e) {
+                console.error("Erro na conexão NASA", e);
+                document.getElementById('mainInput').placeholder = "Erro na conexão.";
+            }
+        }
+        fetchNasaData();
+        // --- FIM DA INTEGRAÇÃO NASA ---
 
         const input = document.getElementById('mainInput');
         const area = document.getElementById('render-area');
@@ -129,7 +131,6 @@
         function render() {
             const clean = cleanString(input.value);
             
-            // Lógica do Easter Egg Corrigida (Case Insensitive)
             if (clean === "CHIMASALICE") {
                 if (!eggActive) {
                     eggActive = true; 
