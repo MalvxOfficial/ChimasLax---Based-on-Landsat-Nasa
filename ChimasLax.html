@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>ChimasLax</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --accent: #ff3131; --bg: #0a0505; }
+        body {
+            background: var(--bg); color: #eee; font-family: 'Segoe UI', sans-serif;
+            margin: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; overflow-x: hidden;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .header { margin-bottom: 25px; text-align: center; }
+        input {
+            background: rgba(255, 255, 255, 0.03); border: 2px solid #441111;
+            color: var(--accent); padding: 15px; border-radius: 14px;
+            font-size: 1.1rem; text-align: center; width: 350px; outline: none;
+        }
+        .viewport { width: 100%; overflow-x: auto; padding: 20px 0; }
+        #render-area {
+            display: flex; flex-direction: row; gap: 25px; padding: 40px 60px;
+            margin: 0 auto; min-width: max-content; background: #0a0505;
+        }
+        .card {
+            background: linear-gradient(145deg, #1a0a0a, #120505);
+            border: 1px solid rgba(255, 49, 49, 0.15); border-radius: 24px;
+            padding: 25px; width: 210px; height: 380px; text-align: center;
+            flex-shrink: 0; display: flex; flex-direction: column;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        .printing .card { animation: none !important; opacity: 1 !important; transform: none !important; }
+        .esfera {
+            width: 110px; height: 110px; border-radius: 50%; margin: 0 auto 20px;
+            flex-shrink: 0; background: radial-gradient(circle at 30% 30%, var(--planet-color), #000);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .nome-astro { color: var(--accent); font-weight: bold; font-size: 1.2rem; margin-bottom: 12px; }
+        .frase-desc { font-size: 0.85rem; color: #bbb; line-height: 1.5; height: 90px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+        .cor-tag { font-size: 0.8rem; font-weight: 600; color: var(--accent); border-top: 1px solid #331111; padding-top: 15px; margin-top: auto; }
+        .controls { display: flex; gap: 15px; margin-top: 25px; }
+        button { padding: 14px 28px; border-radius: 12px; border: 1px solid var(--accent); cursor: pointer; font-weight: bold; background: transparent; color: var(--accent); }
+        .btn-save { border-color: #28a745; color: #28a745; }
+        #easter-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); backdrop-filter: blur(10px);
+            display: none; justify-content: center; align-items: center; z-index: 10000;
+        }
+        .modal {
+            background: #150505; border: 2px solid var(--accent); padding: 40px;
+            border-radius: 25px; text-align: center; max-width: 450px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <input type="text" id="mainInput" placeholder="ChimasAlice..." maxlength="50">
+    </div>
+
+    <div class="viewport">
+        <div id="render-area"></div>
+    </div>
+
+    <div class="controls">
+        <button id="toggleSort">Modo: Letra do Planeta</button>
+        <button class="btn-save" id="savePng">💾 Baixar</button>
+    </div>
+
+    <div id="easter-overlay">
+        <div class="modal">
+            <h2>Vibecodado com Gemini e Mãos humanas (ChimasAlice)</h2>
+            <p>Clique em fechar diálogo para continuar vendo o planeta com meu nome.</p>
+            <span id="timer-text" style="display:block; margin-top:20px; font-weight:bold;">Redirecionando em 10s...</span>
+            <button onclick="closeEgg()" style="margin-top:20px; padding:10px; cursor:pointer;">Fechar Diálogo</button>
+        </div>
+    </div>
+
+    <script>
+        const planetasDB = [
+            { p: 'Aldebaran b', c: 'Alaranjado', hex: '#ff8b3d', d: 'Um gigante gasoso orbitando uma estrela gigante vermelha.' },
+            { p: 'Belerofonte', c: 'Bronze', hex: '#cd7f32', d: 'O primeiro exoplaneta orbitando uma estrela solar.' },
+            { p: 'Ceres', c: 'Cinza', hex: '#8e8e8e', d: 'O maior objeto no cinturão de asteroides, um planeta anão.' },
+            { p: 'Dactyl', c: 'Dourado', hex: '#daa520', d: 'Uma minúscula lua que orbita o asteroide Ida.' },
+            { p: 'Eris', c: 'Escarlate', hex: '#990000', d: 'Um planeta anão gélido localizado no Cinturão de Kuiper.' },
+            { p: 'Fobos', c: 'Ferrugem', hex: '#b7410e', d: 'Uma das luas de Marte, com superfície rica em regolito escuro.' },
+            { p: 'Ganimedes', c: 'Gelo', hex: '#afeeee', d: 'A maior lua do sistema solar, maior que Mercúrio.' },
+            { p: 'Haumea', c: 'Heliotropo', hex: '#df73ff', d: 'Planeta anão com formato elíptico devido à sua rotação.' },
+            { p: 'Io', c: 'Icterícia', hex: '#fdfd00', d: 'O corpo com maior atividade vulcânica do sistema solar.' },
+            { p: 'Júpiter', c: 'Jaspe', hex: '#e3bb76', d: 'O gigante gasoso com suas icônicas faixas de nuvens.' },
+            { p: 'Kepler-186f', c: 'Kiwi', hex: '#8ee53f', d: 'Exoplaneta do tamanho da Terra em zona habitável.' },
+            { p: 'Luna', c: 'Lavanda', hex: '#e6e6fa', d: 'O satélite natural da Terra, com mares de basalto.' },
+            { p: 'Marte', c: 'Magenta', hex: '#ff00ff', d: 'O Planeta Vermelho, coberto por poeira de óxido de ferro.' },
+            { p: 'Netuno', c: 'Naval', hex: '#000080', d: 'O gigante azul profundo com ventos supersônicos.' },
+            { p: 'Osíris', c: 'Ouro', hex: '#ffd700', d: 'Exoplaneta que está perdendo sua atmosfera para o espaço.' },
+            { p: 'Plutão', c: 'Pérola', hex: '#eae0c8', d: 'Planeta anão com planícies de gelo de nitrogênio.' },
+            { p: 'Quaoar', c: 'Quartzo', hex: '#514100', d: 'Objeto transnetuniano gélido com anéis misteriosos.' },
+            { p: 'Rhea', c: 'Rosa', hex: '#ff69b4', d: 'A segunda maior lua de Saturno, composta de gelo de água.' },
+            { p: 'Saturno', c: 'Sépia', hex: '#c5ab6e', d: 'O senhor dos anéis, com tonalidade amarelada suave.' },
+            { p: 'Titã', c: 'Tangerina', hex: '#ff8c00', d: 'A única lua com uma atmosfera densa e lagos líquidos.' },
+            { p: 'Urano', c: 'Uva', hex: '#6a5acd', d: 'Um gigante gelado que orbita o sol quase deitado.' },
+            { p: 'Vênus', c: 'Violeta', hex: '#8b00ff', d: 'O planeta mais quente, com nuvens espessas de ácido.' },
+            { p: 'WASP-12b', c: 'Wenguê', hex: '#645452', d: 'Um exoplaneta escuro sendo deformado por sua estrela.' },
+            { p: 'Xena', c: 'Xantofila', hex: '#f1ff31', d: 'Apelido histórico para o planeta anão Éris.' },
+            { p: 'Ymir', c: 'Yvone', hex: '#f5fffa', d: 'Uma pequena lua irregular orbitando Saturno.' },
+            { p: 'Zena', c: 'Zinco', hex: '#bac4c8', d: 'Referência aos minerais encontrados em meteoritos.' }
+        ];
+
+        const input = document.getElementById('mainInput');
+        const area = document.getElementById('render-area');
+        const btnSort = document.getElementById('toggleSort');
+        const overlay = document.getElementById('easter-overlay');
+        const timerText = document.getElementById('timer-text');
+        
+        let modoBusca = 'nome'; 
+        let eggActive = false;
+        let countdown;
+
+        function closeEgg() { 
+            clearInterval(countdown); 
+            overlay.style.display = 'none'; 
+        }
+
+        function cleanString(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+        }
+
+        function render() {
+            const clean = cleanString(input.value);
+            
+            // Lógica do Easter Egg Corrigida (Case Insensitive)
+            if (clean === "CHIMASALICE") {
+                if (!eggActive) {
+                    eggActive = true; 
+                    overlay.style.display = 'flex';
+                    let s = 10;
+                    if (countdown) clearInterval(countdown);
+                    countdown = setInterval(() => {
+                        s--;
+                        if (s > 3) timerText.innerText = `Redirecionando em ${s}s...`;
+                        else if (s > 0) { 
+                            timerText.innerText = `Em ${s} segundos será redirecionado para o Github.`; 
+                            timerText.style.color = "var(--accent)"; 
+                        }
+                        else { 
+                            clearInterval(countdown);
+                            window.location.href = "https://github.com/MalvxOfficial"; 
+                        }
+                    }, 1000);
+                }
+            } else { 
+                eggActive = false; 
+            }
+
+            area.innerHTML = "";
+            let historicoIndices = {};
+
+            [...clean].forEach((char, index) => {
+                const opcoes = planetasDB.filter(item => {
+                    const alvo = modoBusca === 'nome' ? item.p : item.c;
+                    return cleanString(alvo).startsWith(char);
+                });
+
+                if (opcoes.length === 0) return;
+
+                if (!historicoIndices[char]) historicoIndices[char] = 0;
+                let astro = opcoes[historicoIndices[char] % opcoes.length];
+                historicoIndices[char]++;
+
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.animationDelay = `${index * 0.05}s`;
+                div.innerHTML = `
+                    <div class="esfera" style="--planet-color: ${astro.hex}"></div>
+                    <div class="nome-astro">${astro.p}</div>
+                    <div class="frase-desc">${astro.d}</div>
+                    <div class="cor-tag">Cor: ${astro.c}</div>
+                `;
+                area.appendChild(div);
+            });
+        }
+
+        btnSort.onclick = () => {
+            modoBusca = (modoBusca === 'nome') ? 'cor' : 'nome';
+            btnSort.innerText = modoBusca === 'nome' ? "Modo: Letra do Planeta" : "Modo: Letra da Cor";
+            render();
+        };
+
+        input.oninput = render;
+
+        document.getElementById('savePng').onclick = () => {
+            if (area.children.length === 0) return;
+            document.body.classList.add('printing');
+            setTimeout(() => {
+                html2canvas(area, { backgroundColor: "#0a0505", scale: 2, width: area.scrollWidth, windowWidth: area.scrollWidth }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `atlas-planetario-real.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                    document.body.classList.remove('printing');
+                });
+            }, 100);
+        };
+    </script>
+</body>
+</html>
