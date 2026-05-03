@@ -6,7 +6,7 @@ Um projeto visual e interativo inspirado na iniciativa da NASA [Your Name in Lan
 
 ## 🎨 O Projeto
 
-O **ChimasLax** é uma homenagem estética à exploração espacial e à cartografia terrestre. Ele transforma textos em composições visuais utilizando a base de dados do satélite Landsat, oferecendo uma experiência minimalista e imersiva.
+O **ChimasLax** é uma homenagem estética à exploração espacial. Ele transforma textos em composições visuais oferecendo uma experiência minimalista e imersiva.
 
 ## ⚡ Desenvolvimento & "Vibecoding"
 
