@@ -70,7 +70,7 @@
 
     <div id="easter-overlay">
         <div class="modal">
-            <h2>Vibecodado com Gemini e Mãos humanas (ChimasAlice) v1.1</h2>
+            <h2>Vibecodado com Gemini e Mãos humanas (ChimasAlice)</h2>
             <p>Clique em fechar diálogo para continuar vendo o planeta com meu nome.</p>
             <span id="timer-text" style="display:block; margin-top:20px; font-weight:bold;">Redirecionando em 10s...</span>
             <button onclick="closeEgg()" style="margin-top:20px; padding:10px; cursor:pointer;">Fechar Diálogo</button>
@@ -78,9 +78,11 @@
     </div>
 
     <script>
-        // --- INÍCIO DA INTEGRAÇÃO NASA ---
         let planetasDB = [];
-        const NASA_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json");
+        
+        // Link NASA via Proxy AllOrigins sem cache para forçar a conexão
+        const NASA_API = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
+        const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(NASA_API)}`;
 
         function getPlanetColor(temp) {
             if (!temp) return '#8e8e8e';
@@ -92,13 +94,16 @@
 
         async function fetchNasaData() {
             try {
-                const response = await fetch(NASA_URL);
-                const data = await response.json();
+                const response = await fetch(PROXY_URL);
+                const result = await response.json();
+                // O AllOrigins retorna os dados dentro de 'contents' como string, precisamos converter
+                const data = JSON.parse(result.contents);
+                
                 planetasDB = data.map(p => ({
                     p: p.pl_name,
                     c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
                     hex: getPlanetColor(p.st_teff),
-                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}. Um exoplaneta real catalogado pela NASA.`
+                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}. Um exoplaneta real da base da NASA.`
                 }));
                 document.getElementById('mainInput').placeholder = "ChimasAlice...";
             } catch (e) {
@@ -107,7 +112,6 @@
             }
         }
         fetchNasaData();
-        // --- FIM DA INTEGRAÇÃO NASA ---
 
         const input = document.getElementById('mainInput');
         const area = document.getElementById('render-area');
