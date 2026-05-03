@@ -12,20 +12,30 @@
             justify-content: center; min-height: 100vh; overflow-x: hidden;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .header { margin-bottom: 25px; text-align: center; }
+        .header { margin-bottom: 25px; text-align: center; position: relative; }
         input {
             background: rgba(255, 255, 255, 0.03); border: 2px solid #441111;
             color: var(--accent); padding: 15px; border-radius: 14px;
             font-size: 1.1rem; text-align: center; width: 350px; outline: none;
         }
 
-        /* ESTILO DO LOG */
+        /* CONTAINER DE LOG E BOTÃO */
+        .log-container {
+            margin-top: 10px; width: 350px; position: relative;
+        }
         #debug-log {
             font-family: monospace; font-size: 0.7rem; color: #888;
-            margin-top: 10px; width: 350px; text-align: left;
-            max-height: 60px; overflow-y: auto; background: rgba(0,0,0,0.3);
-            padding: 5px; border-radius: 8px; border: 1px solid #220000;
+            text-align: left; max-height: 80px; overflow-y: auto; 
+            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; 
+            border: 1px solid #220000; white-space: pre-wrap;
         }
+        .btn-copy-log {
+            position: absolute; right: 5px; top: 5px;
+            background: #222; border: 1px solid #444; color: #aaa;
+            font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
+            cursor: pointer; z-index: 10;
+        }
+        .btn-copy-log:active { background: var(--accent); color: white; }
 
         .viewport { width: 100%; overflow-x: auto; padding: 20px 0; }
         #render-area {
@@ -66,7 +76,10 @@
 
     <div class="header">
         <input type="text" id="mainInput" placeholder="Sincronizando NASA..." maxlength="50">
-        <div id="debug-log">Iniciando sistema...</div>
+        <div class="log-container">
+            <button class="btn-copy-log" onclick="copyLogs()">Copiar Logs</button>
+            <div id="debug-log">🚀 [SYS] ChimasLax pronto.</div>
+        </div>
     </div>
 
     <div class="viewport">
@@ -91,14 +104,22 @@
         const logBox = document.getElementById('debug-log');
         function addLog(msg) {
             const time = new Date().toLocaleTimeString();
-            logBox.innerHTML += `<br>[${time}] ${msg}`;
+            logBox.innerText += `\n[${time}] ${msg}`;
             logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function copyLogs() {
+            navigator.clipboard.writeText(logBox.innerText).then(() => {
+                const oldText = document.querySelector('.btn-copy-log').innerText;
+                document.querySelector('.btn-copy-log').innerText = "Copiado!";
+                setTimeout(() => document.querySelector('.btn-copy-log').innerText = oldText, 2000);
+            });
         }
 
         let planetasDB = [];
         
-        // Alternativa via proxy para evitar CORS
-        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+2000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
+        // URL NASA via CORS Proxy (Modo Direto)
+        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+2000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1+order+by+disc_year+desc&format=json";
         const FINAL_URL = "https://corsproxy.io/?" + encodeURIComponent(NASA_QUERY);
 
         function getPlanetColor(temp) {
@@ -110,14 +131,15 @@
         }
 
         async function fetchNasaData() {
-            addLog("Tentando conectar com NASA...");
+            addLog("Iniciando requisição...");
             try {
                 const response = await fetch(FINAL_URL);
-                if (!response.ok) throw new Error("HTTP Status: " + response.status);
+                addLog(`Status HTTP: ${response.status}`);
+                if (!response.ok) throw new Error(`Falha no Proxy (${response.status})`);
                 
-                addLog("Conexão OK. Processando dados...");
                 const data = await response.json();
-                
+                addLog(`Parse JSON concluído.`);
+
                 planetasDB = data.map(p => ({
                     p: p.pl_name,
                     c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
@@ -125,11 +147,10 @@
                     d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
                 }));
 
-                addLog(`Sucesso: ${data.length} astros carregados.`);
+                addLog(`Sucesso: ${data.length} planetas em memória.`);
                 document.getElementById('mainInput').placeholder = "ChimasAlice...";
             } catch (e) {
                 addLog(`ERRO: ${e.message}`);
-                console.error(e);
                 document.getElementById('mainInput').placeholder = "Erro de conexão.";
             }
         }
@@ -202,7 +223,7 @@
                     <div class="esfera" style="--planet-color: ${astro.hex}"></div>
                     <div class="nome-astro">${astro.p}</div>
                     <div class="frase-desc">${astro.d}</div>
-                    <div class="cor-tag">Cor: ${astro.c}</div>
+                    <div class="cor-tag">Cor/Temp: ${astro.c}</div>
                 `;
                 area.appendChild(div);
             });
