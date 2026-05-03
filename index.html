@@ -1,255 +1,169 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>ChimasLax</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <style>
-        :root { --accent: #ff3131; --bg: #0a0505; }
-        body {
-            background: var(--bg); color: #eee; font-family: 'Segoe UI', sans-serif;
-            margin: 0; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 100vh; overflow-x: hidden;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .header { margin-bottom: 25px; text-align: center; position: relative; }
-        input {
-            background: rgba(255, 255, 255, 0.03); border: 2px solid #441111;
-            color: var(--accent); padding: 15px; border-radius: 14px;
-            font-size: 1.1rem; text-align: center; width: 350px; outline: none;
-        }
+<script>
+    const logBox = document.getElementById('debug-log');
+    function addLog(msg) {
+        const time = new Date().toLocaleTimeString();
+        logBox.innerText += `\n[${time}] ${msg}`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
 
-        /* CONTAINER DE LOG E BOTÃO */
-        .log-container {
-            margin-top: 10px; width: 350px; position: relative;
-        }
-        #debug-log {
-            font-family: monospace; font-size: 0.7rem; color: #888;
-            text-align: left; max-height: 80px; overflow-y: auto; 
-            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; 
-            border: 1px solid #220000; white-space: pre-wrap;
-        }
-        .btn-copy-log {
-            position: absolute; right: 5px; top: 5px;
-            background: #222; border: 1px solid #444; color: #aaa;
-            font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
-            cursor: pointer; z-index: 10;
-        }
-        .btn-copy-log:active { background: var(--accent); color: white; }
+    function copyLogs() {
+        navigator.clipboard.writeText(logBox.innerText).then(() => {
+            const btn = document.querySelector('.btn-copy-log');
+            const oldText = btn.innerText;
+            btn.innerText = "Copiado!";
+            setTimeout(() => btn.innerText = oldText, 2000);
+        });
+    }
 
-        .viewport { width: 100%; overflow-x: auto; padding: 20px 0; }
-        #render-area {
-            display: flex; flex-direction: row; gap: 25px; padding: 40px 60px;
-            margin: 0 auto; min-width: max-content; background: #0a0505;
-        }
-        .card {
-            background: linear-gradient(145deg, #1a0a0a, #120505);
-            border: 1px solid rgba(255, 49, 49, 0.15); border-radius: 24px;
-            padding: 25px; width: 210px; height: 380px; text-align: center;
-            flex-shrink: 0; display: flex; flex-direction: column;
-            animation: fadeIn 0.5s ease-out forwards;
-        }
-        .printing .card { animation: none !important; opacity: 1 !important; transform: none !important; }
-        .esfera {
-            width: 110px; height: 110px; border-radius: 50%; margin: 0 auto 20px;
-            flex-shrink: 0; background: radial-gradient(circle at 30% 30%, var(--planet-color), #000);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-        }
-        .nome-astro { color: var(--accent); font-weight: bold; font-size: 1.2rem; margin-bottom: 12px; }
-        .frase-desc { font-size: 0.85rem; color: #bbb; line-height: 1.5; height: 90px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
-        .cor-tag { font-size: 0.8rem; font-weight: 600; color: var(--accent); border-top: 1px solid #331111; padding-top: 15px; margin-top: auto; }
-        .controls { display: flex; gap: 15px; margin-top: 25px; }
-        button { padding: 14px 28px; border-radius: 12px; border: 1px solid var(--accent); cursor: pointer; font-weight: bold; background: transparent; color: var(--accent); }
-        .btn-save { border-color: #28a745; color: #28a745; }
-        #easter-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); backdrop-filter: blur(10px);
-            display: none; justify-content: center; align-items: center; z-index: 10000;
-        }
-        .modal {
-            background: #150505; border: 2px solid var(--accent); padding: 40px;
-            border-radius: 25px; text-align: center; max-width: 450px;
-        }
-    </style>
-</head>
-<body>
+    let planetasDB = [];
+    
+    // Query simplificada para evitar erros de caractere
+    const NASA_API = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+1000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1&format=json";
+    
+    // Usando AllOrigins no modo GET (mais estável para JSON puro)
+    const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(NASA_API)}`;
 
-    <div class="header">
-        <input type="text" id="mainInput" placeholder="Sincronizando NASA..." maxlength="50">
-        <div class="log-container">
-            <button class="btn-copy-log" onclick="copyLogs()">Copiar Logs</button>
-            <div id="debug-log">🚀 [SYS] ChimasLax pronto.</div>
-        </div>
-    </div>
+    function getPlanetColor(temp) {
+        if (!temp) return '#8e8e8e';
+        if (temp > 10000) return '#9bb0ff';
+        if (temp > 6000) return '#f8f7ff';
+        if (temp > 4000) return '#fff2a1';
+        return '#ff6060';
+    }
 
-    <div class="viewport">
-        <div id="render-area"></div>
-    </div>
-
-    <div class="controls">
-        <button id="toggleSort">Modo: Letra do Planeta</button>
-        <button class="btn-save" id="savePng">💾 Baixar</button>
-    </div>
-
-    <div id="easter-overlay">
-        <div class="modal">
-            <h2>Vibecodado com Gemini e Mãos humanas (ChimasAlice)</h2>
-            <p>Clique em fechar diálogo para continuar vendo o planeta com meu nome.</p>
-            <span id="timer-text" style="display:block; margin-top:20px; font-weight:bold;">Redirecionando em 10s...</span>
-            <button onclick="closeEgg()" style="margin-top:20px; padding:10px; cursor:pointer;">Fechar Diálogo</button>
-        </div>
-    </div>
-
-    <script>
-        const logBox = document.getElementById('debug-log');
-        function addLog(msg) {
-            const time = new Date().toLocaleTimeString();
-            logBox.innerText += `\n[${time}] ${msg}`;
-            logBox.scrollTop = logBox.scrollHeight;
-        }
-
-        function copyLogs() {
-            navigator.clipboard.writeText(logBox.innerText).then(() => {
-                const oldText = document.querySelector('.btn-copy-log').innerText;
-                document.querySelector('.btn-copy-log').innerText = "Copiado!";
-                setTimeout(() => document.querySelector('.btn-copy-log').innerText = oldText, 2000);
-            });
-        }
-
-        let planetasDB = [];
-        
-        // URL NASA via CORS Proxy (Modo Direto)
-        const NASA_QUERY = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+top+2000+pl_name,st_teff,disc_year,discoverymethod+from+ps+where+default_flag=1+order+by+disc_year+desc&format=json";
-        const FINAL_URL = "https://corsproxy.io/?" + encodeURIComponent(NASA_QUERY);
-
-        function getPlanetColor(temp) {
-            if (!temp) return '#8e8e8e';
-            if (temp > 10000) return '#9bb0ff';
-            if (temp > 6000) return '#f8f7ff';
-            if (temp > 4000) return '#fff2a1';
-            return '#ff6060';
-        }
-
-        async function fetchNasaData() {
-            addLog("Iniciando requisição...");
-            try {
-                const response = await fetch(FINAL_URL);
-                addLog(`Status HTTP: ${response.status}`);
-                if (!response.ok) throw new Error(`Falha no Proxy (${response.status})`);
-                
-                const data = await response.json();
-                addLog(`Parse JSON concluído.`);
-
-                planetasDB = data.map(p => ({
-                    p: p.pl_name,
-                    c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
-                    hex: getPlanetColor(p.st_teff),
-                    d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
-                }));
-
-                addLog(`Sucesso: ${data.length} planetas em memória.`);
-                document.getElementById('mainInput').placeholder = "ChimasAlice...";
-            } catch (e) {
-                addLog(`ERRO: ${e.message}`);
-                document.getElementById('mainInput').placeholder = "Erro de conexão.";
-            }
-        }
-        fetchNasaData();
-
-        const input = document.getElementById('mainInput');
-        const area = document.getElementById('render-area');
-        const btnSort = document.getElementById('toggleSort');
-        const overlay = document.getElementById('easter-overlay');
-        const timerText = document.getElementById('timer-text');
-        
-        let modoBusca = 'nome'; 
-        let eggActive = false;
-        let countdown;
-
-        function closeEgg() { 
-            clearInterval(countdown); 
-            overlay.style.display = 'none'; 
-        }
-
-        function cleanString(str) {
-            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-        }
-
-        function render() {
-            const clean = cleanString(input.value);
+    async function fetchNasaData() {
+        addLog("Conectando via AllOrigins...");
+        try {
+            const response = await fetch(PROXY_URL);
+            if (!response.ok) throw new Error("Erro no servidor Proxy");
             
-            if (clean === "CHIMASALICE") {
-                if (!eggActive) {
-                    eggActive = true; 
-                    overlay.style.display = 'flex';
-                    let s = 10;
-                    if (countdown) clearInterval(countdown);
-                    countdown = setInterval(() => {
-                        s--;
-                        if (s > 3) timerText.innerText = `Redirecionando em ${s}s...`;
-                        else if (s > 0) { 
-                            timerText.innerText = `Em ${s} segundos será redirecionado para o Github.`; 
-                            timerText.style.color = "var(--accent)"; 
-                        }
-                        else { 
-                            clearInterval(countdown);
-                            window.location.href = "https://github.com/MalvxOfficial/ChimasLax---Based-on-Landsat-Nasa"; 
-                        }
-                    }, 1000);
-                }
-            } else { 
-                eggActive = false; 
+            const result = await response.json();
+            // AllOrigins retorna o JSON dentro de result.contents
+            const data = typeof result.contents === 'string' ? JSON.parse(result.contents) : result.contents;
+            
+            if (!Array.isArray(data)) throw new Error("Formato de dados inválido");
+
+            planetasDB = data.map(p => ({
+                p: p.pl_name,
+                c: p.st_teff ? `${p.st_teff}K` : 'Estelar',
+                hex: getPlanetColor(p.st_teff),
+                d: `Descoberto em ${p.disc_year} via ${p.discoverymethod}.`
+            }));
+
+            addLog(`Sucesso! ${planetasDB.length} astros sincronizados.`);
+            document.getElementById('mainInput').placeholder = "ChimasAlice...";
+        } catch (e) {
+            addLog(`ERRO: ${e.message}`);
+            addLog("Tentando backup (Direct)...");
+            // Tentativa final direta (alguns navegadores mobile permitem se o site estiver no GitHub)
+            try {
+                const res = await fetch(NASA_API);
+                const data = await res.json();
+                planetasDB = data.map(p => ({
+                    p: p.pl_name, hex: getPlanetColor(p.st_teff), d: `Ano: ${p.disc_year}`, c: `${p.st_teff}K`
+                }));
+                addLog("Sucesso via Direct Connection!");
+                document.getElementById('mainInput').placeholder = "ChimasAlice...";
+            } catch(err) {
+                addLog("Falha total na sincronização.");
+                document.getElementById('mainInput').placeholder = "Erro Crítico.";
             }
+        }
+    }
+    fetchNasaData();
 
-            area.innerHTML = "";
-            let historicoIndices = {};
+    const input = document.getElementById('mainInput');
+    const area = document.getElementById('render-area');
+    const btnSort = document.getElementById('toggleSort');
+    const overlay = document.getElementById('easter-overlay');
+    const timerText = document.getElementById('timer-text');
+    
+    let modoBusca = 'nome'; 
+    let eggActive = false;
+    let countdown;
 
-            [...clean].forEach((char, index) => {
-                const opcoes = planetasDB.filter(item => {
-                    const alvo = modoBusca === 'nome' ? item.p : item.c;
-                    return cleanString(alvo).startsWith(char);
-                });
+    function closeEgg() { 
+        clearInterval(countdown); 
+        overlay.style.display = 'none'; 
+    }
 
-                if (opcoes.length === 0) return;
+    function cleanString(str) {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    }
 
-                if (!historicoIndices[char]) historicoIndices[char] = 0;
-                let astro = opcoes[historicoIndices[char] % opcoes.length];
-                historicoIndices[char]++;
-
-                const div = document.createElement('div');
-                div.className = 'card';
-                div.style.animationDelay = `${index * 0.05}s`;
-                div.innerHTML = `
-                    <div class="esfera" style="--planet-color: ${astro.hex}"></div>
-                    <div class="nome-astro">${astro.p}</div>
-                    <div class="frase-desc">${astro.d}</div>
-                    <div class="cor-tag">Cor/Temp: ${astro.c}</div>
-                `;
-                area.appendChild(div);
-            });
+    function render() {
+        const clean = cleanString(input.value);
+        
+        if (clean === "CHIMASALICE") {
+            if (!eggActive) {
+                eggActive = true; 
+                overlay.style.display = 'flex';
+                let s = 10;
+                if (countdown) clearInterval(countdown);
+                countdown = setInterval(() => {
+                    s--;
+                    if (s > 3) timerText.innerText = `Redirecionando em ${s}s...`;
+                    else if (s > 0) { 
+                        timerText.innerText = `Em ${s} segundos será redirecionado para o Github.`; 
+                        timerText.style.color = "var(--accent)"; 
+                    }
+                    else { 
+                        clearInterval(countdown);
+                        window.location.href = "https://github.com/MalvxOfficial/ChimasLax---Based-on-Landsat-Nasa"; 
+                    }
+                }, 1000);
+            }
+        } else { 
+            eggActive = false; 
         }
 
-        btnSort.onclick = () => {
-            modoBusca = (modoBusca === 'nome') ? 'cor' : 'nome';
-            btnSort.innerText = modoBusca === 'nome' ? "Modo: Letra do Planeta" : "Modo: Letra da Cor";
-            render();
-        };
+        area.innerHTML = "";
+        let historicoIndices = {};
 
-        input.oninput = render;
+        [...clean].forEach((char, index) => {
+            const opcoes = planetasDB.filter(item => {
+                const alvo = (modoBusca === 'nome') ? item.p : item.c;
+                return cleanString(alvo).startsWith(char);
+            });
 
-        document.getElementById('savePng').onclick = () => {
-            if (area.children.length === 0) return;
-            document.body.classList.add('printing');
-            setTimeout(() => {
-                html2canvas(area, { backgroundColor: "#0a0505", scale: 2, width: area.scrollWidth, windowWidth: area.scrollWidth }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `atlas-planetario-real.png`;
-                    link.href = canvas.toDataURL();
-                    link.click();
-                    document.body.classList.remove('printing');
-                });
-            }, 100);
-        };
-    </script>
-</body>
-</html>
+            if (opcoes.length === 0) return;
+
+            if (!historicoIndices[char]) historicoIndices[char] = 0;
+            let astro = opcoes[historicoIndices[char] % opcoes.length];
+            historicoIndices[char]++;
+
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.style.animationDelay = `${index * 0.05}s`;
+            div.innerHTML = `
+                <div class="esfera" style="--planet-color: ${astro.hex}"></div>
+                <div class="nome-astro">${astro.p}</div>
+                <div class="frase-desc">${astro.d}</div>
+                <div class="cor-tag">Cor/Temp: ${astro.c}</div>
+            `;
+            area.appendChild(div);
+        });
+    }
+
+    btnSort.onclick = () => {
+        modoBusca = (modoBusca === 'nome') ? 'cor' : 'nome';
+        btnSort.innerText = modoBusca === 'nome' ? "Modo: Letra do Planeta" : "Modo: Letra da Cor";
+        render();
+    };
+
+    input.oninput = render;
+
+    document.getElementById('savePng').onclick = () => {
+        if (area.children.length === 0) return;
+        document.body.classList.add('printing');
+        setTimeout(() => {
+            html2canvas(area, { backgroundColor: "#0a0505", scale: 2, width: area.scrollWidth, windowWidth: area.scrollWidth }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `atlas-planetario-real.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                document.body.classList.remove('printing');
+            });
+        }, 100);
+    };
+</script>
