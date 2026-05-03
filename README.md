@@ -1,4 +1,5 @@
 # 🛰️ ChimasLax — Based on Landsat (NASA)
+**Esss projeto está desativado, talvez um dia eu volte a fazer ele.**
 
 [![Acessar Site](https://img.shields.io/badge/Acessar_Projeto-0078D4?style=for-the-badge&logo=github&logoColor=white)](https://malvxofficial.github.io/ChimasLax---Based-on-Landsat-Nasa/)
 
